@@ -28,6 +28,12 @@ export async function runCommand(options: CLIOptions, context: CLICommandContext
             fsSync.unlinkSync(socketPath);
         }
 
+        // これで終了フラグを設定
+        let resolveDaemon: (value: boolean) => void;
+        const daemonWaitPromise = new Promise<boolean>((resolve) => {
+            resolveDaemon = resolve;
+        });
+
         // サーバー作成
         const nodeNet = eval('require("net")');
         const server = nodeNet.createServer((socket: any) => {
@@ -36,6 +42,18 @@ export async function runCommand(options: CLIOptions, context: CLICommandContext
             // socketへの書き込み処理
             socket.on("data", async (data: any) => {
                 const [cmd, ...args] = data.toString().trim().split(/\s+/);
+
+                // 終了処理
+                if (cmd === "exit") {
+                    console.log("[Daemon] サーバーを停止します。");
+                    socket.write("DONE\n", () => {
+                        socket.end();
+                        server.close(); // 新規接続の受付を停止
+                        resolveDaemon(true); // daemonを解決
+                    });
+                    return;
+                }
+
                 let outputBuffer = "";
 
                 try {
@@ -67,7 +85,12 @@ export async function runCommand(options: CLIOptions, context: CLICommandContext
 
         // 5. 【最重要】プロセスを死なせないための「重し」
         // これがある限り、Node.jsは終了せずに裏の同期も維持し続けます
-        await new Promise(() => {});
+        await daemonWaitPromise;
+
+        // --- 4. 終了前にソケットファイルを掃除 ---
+        if (fsSync.existsSync(socketPath)) {
+            fsSync.unlinkSync(socketPath);
+        }
 
         return true;
     }

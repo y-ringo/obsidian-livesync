@@ -55,4 +55,5 @@ export const VALID_COMMANDS = new Set([
     "resolve",
     "mirror",
     "init-settings",
+    "daemon",
 ] as const);

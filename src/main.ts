@@ -45,166 +45,166 @@ import { useP2PReplicatorCommands } from "@lib/replication/trystero/useP2PReplic
 import { useP2PReplicatorUI } from "./serviceFeatures/useP2PReplicatorUI.ts";
 export type LiveSyncCore = LiveSyncBaseCore<ObsidianServiceContext, LiveSyncCommands>;
 export default class ObsidianLiveSyncPlugin extends Plugin {
-    core: LiveSyncCore;
+  core: LiveSyncCore;
 
-    /**
-     * Initialise service modules.
-     */
-    private initialiseServiceModules(
-        core: LiveSyncBaseCore<ObsidianServiceContext, LiveSyncCommands>,
-        services: InjectableServiceHub<ObsidianServiceContext>
-    ): ServiceModules {
-        const storageAccessManager = new StorageAccessManager();
-        // If we want to implement to the other platform, implement ObsidianXXXXXService.
-        const vaultAccess = new FileAccessObsidian(this.app, {
-            storageAccessManager: storageAccessManager,
-            vaultService: services.vault,
-            settingService: services.setting,
-            APIService: services.API,
-            pathService: services.path,
-        });
-        const storageEventManager = new StorageEventManagerObsidian(this, core, {
-            fileProcessing: services.fileProcessing,
-            setting: services.setting,
-            vaultService: services.vault,
-            storageAccessManager: storageAccessManager,
-            APIService: services.API,
-        });
-        const storageAccess = new ServiceFileAccessObsidian({
-            API: services.API,
-            setting: services.setting,
-            fileProcessing: services.fileProcessing,
-            vault: services.vault,
-            appLifecycle: services.appLifecycle,
-            storageEventManager: storageEventManager,
-            storageAccessManager: storageAccessManager,
-            vaultAccess: vaultAccess,
-        });
+  /**
+   * Initialise service modules.
+   */
+  private initialiseServiceModules(
+    core: LiveSyncBaseCore<ObsidianServiceContext, LiveSyncCommands>,
+    services: InjectableServiceHub<ObsidianServiceContext>
+  ): ServiceModules {
+    const storageAccessManager = new StorageAccessManager();
+    // If we want to implement to the other platform, implement ObsidianXXXXXService.
+    const vaultAccess = new FileAccessObsidian(this.app, {
+      storageAccessManager: storageAccessManager,
+      vaultService: services.vault,
+      settingService: services.setting,
+      APIService: services.API,
+      pathService: services.path,
+    });
+    const storageEventManager = new StorageEventManagerObsidian(this, core, {
+      fileProcessing: services.fileProcessing,
+      setting: services.setting,
+      vaultService: services.vault,
+      storageAccessManager: storageAccessManager,
+      APIService: services.API,
+    });
+    const storageAccess = new ServiceFileAccessObsidian({
+      API: services.API,
+      setting: services.setting,
+      fileProcessing: services.fileProcessing,
+      vault: services.vault,
+      appLifecycle: services.appLifecycle,
+      storageEventManager: storageEventManager,
+      storageAccessManager: storageAccessManager,
+      vaultAccess: vaultAccess,
+    });
 
-        const databaseFileAccess = new ServiceDatabaseFileAccess({
-            API: services.API,
-            database: services.database,
-            path: services.path,
-            storageAccess: storageAccess,
-            vault: services.vault,
-        });
+    const databaseFileAccess = new ServiceDatabaseFileAccess({
+      API: services.API,
+      database: services.database,
+      path: services.path,
+      storageAccess: storageAccess,
+      vault: services.vault,
+    });
 
-        const fileHandler = new ServiceFileHandler({
-            API: services.API,
-            databaseFileAccess: databaseFileAccess,
-            conflict: services.conflict,
-            setting: services.setting,
-            fileProcessing: services.fileProcessing,
-            vault: services.vault,
-            path: services.path,
-            replication: services.replication,
-            storageAccess: storageAccess,
-        });
-        const rebuilder = new ServiceRebuilder({
-            API: services.API,
-            database: services.database,
-            appLifecycle: services.appLifecycle,
-            setting: services.setting,
-            remote: services.remote,
-            databaseEvents: services.databaseEvents,
-            replication: services.replication,
-            replicator: services.replicator,
-            UI: services.UI,
-            vault: services.vault,
-            fileHandler: fileHandler,
-            storageAccess: storageAccess,
-            control: services.control,
-        });
-        return {
-            rebuilder,
-            fileHandler,
-            databaseFileAccess,
-            storageAccess,
-        };
-    }
+    const fileHandler = new ServiceFileHandler({
+      API: services.API,
+      databaseFileAccess: databaseFileAccess,
+      conflict: services.conflict,
+      setting: services.setting,
+      fileProcessing: services.fileProcessing,
+      vault: services.vault,
+      path: services.path,
+      replication: services.replication,
+      storageAccess: storageAccess,
+    });
+    const rebuilder = new ServiceRebuilder({
+      API: services.API,
+      database: services.database,
+      appLifecycle: services.appLifecycle,
+      setting: services.setting,
+      remote: services.remote,
+      databaseEvents: services.databaseEvents,
+      replication: services.replication,
+      replicator: services.replicator,
+      UI: services.UI,
+      vault: services.vault,
+      fileHandler: fileHandler,
+      storageAccess: storageAccess,
+      control: services.control,
+    });
+    return {
+      rebuilder,
+      fileHandler,
+      databaseFileAccess,
+      storageAccess,
+    };
+  }
 
-    /**
-     * @obsolete Use services.setting.saveSettingData instead. Save the settings to the disk. This is usually called after changing the settings in the code, to persist the changes.
-     */
-    async saveSettings() {
-        await this.core.services.setting.saveSettingData();
-    }
+  /**
+   * @obsolete Use services.setting.saveSettingData instead. Save the settings to the disk. This is usually called after changing the settings in the code, to persist the changes.
+   */
+  async saveSettings() {
+    await this.core.services.setting.saveSettingData();
+  }
 
-    constructor(app: App, manifest: PluginManifest) {
-        super(app, manifest);
-        // Maybe no more need to setNoticeClass, but for safety, set it in the constructor of the main plugin class.
-        // TODO: remove this.
-        setNoticeClass(Notice);
+  constructor(app: App, manifest: PluginManifest) {
+    super(app, manifest);
+    // Maybe no more need to setNoticeClass, but for safety, set it in the constructor of the main plugin class.
+    // TODO: remove this.
+    setNoticeClass(Notice);
 
-        const serviceHub = new ObsidianServiceHub(this);
+    const serviceHub = new ObsidianServiceHub(this);
 
-        this.core = new LiveSyncBaseCore(
-            serviceHub,
-            (core, serviceHub) => {
-                return this.initialiseServiceModules(core, serviceHub);
-            },
-            (core) => {
-                const extraModules = [
-                    new ModuleObsidianEvents(this, core),
-                    new ModuleObsidianSettingDialogue(this, core),
-                    new ModuleObsidianMenu(core),
-                    new ModuleObsidianSettingsAsMarkdown(core),
-                    new ModuleLog(this, core),
-                    new ModuleObsidianDocumentHistory(this, core),
-                    new ModuleInteractiveConflictResolver(this, core),
-                    new ModuleObsidianGlobalHistory(this, core),
-                    new ModuleDev(this, core),
-                    new ModuleReplicateTest(this, core),
-                    new ModuleIntegratedTest(this, core),
-                    new SetupManager(core), // this should be moved to core?
-                    new ModuleMigration(core),
-                ];
-                return extraModules;
-            },
-            (core) => {
-                const addOns = [
-                    new ConfigSync(this, core),
-                    new HiddenFileSync(this, core),
-                    new LocalDatabaseMaintenance(this, core),
-                ];
-                return addOns;
-            },
-            (core) => {
-                //TODO Fix: useXXXX
-                const featuresInitialiser = enableI18nFeature;
-                const curriedFeature = () => featuresInitialiser(core);
-                core.services.appLifecycle.onLayoutReady.addHandler(curriedFeature);
-                const setupManager = core.getModule(SetupManager);
+    this.core = new LiveSyncBaseCore(
+      serviceHub,
+      (core, serviceHub) => {
+        return this.initialiseServiceModules(core, serviceHub);
+      },
+      (core) => {
+        const extraModules = [
+          new ModuleObsidianEvents(this, core),
+          new ModuleObsidianSettingDialogue(this, core),
+          new ModuleObsidianMenu(core),
+          new ModuleObsidianSettingsAsMarkdown(core),
+          new ModuleLog(this, core),
+          new ModuleObsidianDocumentHistory(this, core),
+          new ModuleInteractiveConflictResolver(this, core),
+          new ModuleObsidianGlobalHistory(this, core),
+          new ModuleDev(this, core),
+          new ModuleReplicateTest(this, core),
+          new ModuleIntegratedTest(this, core),
+          new SetupManager(core), // this should be moved to core?
+          new ModuleMigration(core),
+        ];
+        return extraModules;
+      },
+      (core) => {
+        const addOns = [
+          new ConfigSync(this, core),
+          new HiddenFileSync(this, core),
+          new LocalDatabaseMaintenance(this, core),
+        ];
+        return addOns;
+      },
+      (core) => {
+        //TODO Fix: useXXXX
+        const featuresInitialiser = enableI18nFeature;
+        const curriedFeature = () => featuresInitialiser(core);
+        core.services.appLifecycle.onLayoutReady.addHandler(curriedFeature);
+        const setupManager = core.getModule(SetupManager);
 
-                useRemoteConfiguration(core);
+        useRemoteConfiguration(core);
 
-                useSetupProtocolFeature(core, setupManager);
-                useSetupQRCodeFeature(core);
-                useSetupURIFeature(core);
-                useSetupManagerHandlersFeature(core, setupManager);
-                useOfflineScanner(core);
-                useRedFlagFeatures(core);
-                useCheckRemoteSize(core);
-                // p2pReplicatorResult = useP2PReplicator(core, [
-                //     VIEW_TYPE_P2P,
-                //     (leaf: any) => new P2PReplicatorPaneView(leaf, core, p2pReplicatorResult!),
-                // ]);
-                const replicator = useP2PReplicatorFeature(core);
-                useP2PReplicatorCommands(core, replicator);
-                useP2PReplicatorUI(core, core, replicator);
-            }
-        );
-    }
+        useSetupProtocolFeature(core, setupManager);
+        useSetupQRCodeFeature(core);
+        useSetupURIFeature(core);
+        useSetupManagerHandlersFeature(core, setupManager);
+        useOfflineScanner(core);
+        useRedFlagFeatures(core);
+        useCheckRemoteSize(core);
+        // p2pReplicatorResult = useP2PReplicator(core, [
+        //     VIEW_TYPE_P2P,
+        //     (leaf: any) => new P2PReplicatorPaneView(leaf, core, p2pReplicatorResult!),
+        // ]);
+        const replicator = useP2PReplicatorFeature(core);
+        useP2PReplicatorCommands(core, replicator);
+        useP2PReplicatorUI(core, core, replicator);
+      }
+    );
+  }
 
-    private async _startUp() {
-        if (!(await this.core.services.control.onLoad())) return;
-        const onReady = this.core.services.control.onReady.bind(this.core.services.control);
-        this.app.workspace.onLayoutReady(onReady);
-    }
-    override onload() {
-        void this._startUp();
-    }
-    override onunload() {
-        return void this.core.services.control.onUnload();
-    }
+  private async _startUp() {
+    if (!(await this.core.services.control.onLoad())) return;
+    const onReady = this.core.services.control.onReady.bind(this.core.services.control);
+    this.app.workspace.onLayoutReady(onReady);
+  }
+  override onload() {
+    void this._startUp();
+  }
+  override onunload() {
+    return void this.core.services.control.onUnload();
+  }
 }

@@ -121,7 +121,7 @@ export function parseArgs(): CLIOptions {
                 force = true;
                 break;
             default: {
-                if (!databasePath) {
+                if (!databasePath) { // Type databasePath === undefined
                     if (command === "daemon" && VALID_COMMANDS.has(token as any)) {
                         command = token as CLICommand;
                         break;

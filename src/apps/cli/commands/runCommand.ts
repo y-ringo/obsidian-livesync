@@ -10,11 +10,58 @@ import { collectPeers, openP2PHost, parseTimeoutSeconds, syncWithPeer } from "./
 import { performFullScan } from "@lib/serviceFeatures/offlineScanner";
 import { UnresolvedErrorManager } from "@lib/services/base/UnresolvedErrorManager";
 
+import * as net from "net";
+// import * as path from "path";
+import * as fsSync from "fs"; // 本家と差別化して入れないとPromise版と混ざる
+
 export async function runCommand(options: CLIOptions, context: CLICommandContext): Promise<boolean> {
     const { vaultPath, core, settingsPath } = context;
 
     await core.services.control.activated;
     if (options.command === "daemon") {
+    // ====================================================================
+    // ここから追記
+    // ====================================================================
+        // socketPathの設定 setttings.jsonと同階層に.livesync_daemon.sockとして配置
+        const socketPath = path.join(path.dirname(settingsPath), ".livesync_daemon.sock");
+        // 前回の実行で残ったソケットファイルを掃除
+        if (fsSync.existsSync(socketPath)) {
+            fsSync.unlinkSync(socketPath);
+        }
+
+        // サーバー作成
+        const server = net.createServer((socket) => {
+          // const server = (typeof net.createServer === 'function' ? net : require("net")).createServer((socket) => {
+            console.log("[Daemon] クライアントが接続しました");
+
+            socket.on("data", async (data) => {
+                const line = data.toString().trim();
+                if (!line) return;
+
+                console.log(`[Daemon] 受信命令: ${line}`);
+                const [cmd, ...args] = line.split(/\s+/);
+
+                try {
+                    // ここで自分自身を再実行して「ファイル反映」を行う
+                    await runCommand(
+                        { ...options, command: cmd as any, commandArgs: args },
+                        context
+                    );
+                    socket.write("OK\n");
+                } catch (err) {
+                    socket.write(`ERROR: ${err}\n`);
+                }
+            });
+        });
+        // 4. ソケットの待機を開始
+        server.listen(socketPath, () => {
+            console.log(`[Daemon] 準備完了。待機中: ${socketPath}`);
+        });
+
+        // 5. 【最重要】プロセスを死なせないための「重し」
+        // これがある限り、Node.jsは終了せずに裏の同期も維持し続けます
+        await new Promise(() => {});
+        
         return true;
     }
 

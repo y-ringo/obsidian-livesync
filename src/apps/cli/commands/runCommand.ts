@@ -18,9 +18,9 @@ export async function runCommand(options: CLIOptions, context: CLICommandContext
 
     await core.services.control.activated;
     if (options.command === "daemon") {
-    // ====================================================================
-    // ここから追記
-    // ====================================================================
+        // ====================================================================
+        // ここから追記
+        // ====================================================================
         // socketPathの設定 setttings.jsonと同階層に.livesync_daemon.sockとして配置
         const socketPath = path.join(path.dirname(settingsPath), ".livesync_daemon.sock");
         // 前回の実行で残ったソケットファイルを掃除
@@ -30,32 +30,35 @@ export async function runCommand(options: CLIOptions, context: CLICommandContext
 
         // サーバー作成
         const nodeNet = eval('require("net")');
-        const server = nodeNet.createServer((socket:any) => {
+        const server = nodeNet.createServer((socket: any) => {
             console.log("[Daemon] クライアントが接続しました");
 
             // socketへの書き込み処理
             socket.on("data", async (data: any) => {
-    const [cmd, ...args] = data.toString().trim().split(/\s+/);
-    let outputBuffer = `STARTING: ${cmd}\n`; // 全出力をここに貯める
+                const [cmd, ...args] = data.toString().trim().split(/\s+/);
+                let outputBuffer = "";
 
-          try {
-              await runCommand(
-                  { ...options, command: cmd as any, commandArgs: args },
-                  { 
-                      ...context, 
-                      // writeが呼ばれるたびにバッファに追記するだけにする
-                      write: (msg: string) => { outputBuffer += msg; } 
-                  }
-              );
-              outputBuffer += "DONE\n";
-          } catch (err: any) {
-              outputBuffer += `ERROR: ${err.message}\n`;
-          } finally {
-              // 最後に、貯まった全データを end() に渡して一気に送る
-              // Node.jsの仕様上、end(data) は「全部送りきるまで切断しない」ことを保証します
-              socket.end(outputBuffer);
-          }
-      });
+                try {
+                    await runCommand(
+                        { ...options, command: cmd as any, commandArgs: args },
+                        {
+                            ...context,
+                            // writeが呼ばれるたびにバッファに追記するだけにする
+                            write: (msg: string) => {
+                                outputBuffer += msg;
+                            },
+                        }
+                    );
+                    outputBuffer += "DONE\n";
+                } catch (err: any) {
+                    outputBuffer += `ERROR: ${err.message}\n`;
+                } finally {
+                    // 最後に、貯まった全データを end() に渡して一気に送る
+                    // Node.jsの仕様上、end(data) は「全部送りきるまで切断しない」ことを保証します
+                    socket.end(outputBuffer);
+                }
+                console.log("[Daemon] クライアントを切断しました");
+            });
         });
         // 4. ソケットの待機を開始
         server.listen(socketPath, () => {
@@ -65,7 +68,7 @@ export async function runCommand(options: CLIOptions, context: CLICommandContext
         // 5. 【最重要】プロセスを死なせないための「重し」
         // これがある限り、Node.jsは終了せずに裏の同期も維持し続けます
         await new Promise(() => {});
-        
+
         return true;
     }
 
@@ -313,17 +316,15 @@ export async function runCommand(options: CLIOptions, context: CLICommandContext
         if (rows.length > 0) {
             const output = rows.map((e) => e.line).join("\n") + "\n";
 
-            // 「context に write があれば使う」を、より確実に書く
-            const target = (context as any).write; 
+            // 「context に write があれば使う」
+            const target = (context as any).write;
 
-            if (typeof target === 'function') {
-                console.log("★★★★★ context.write を実行 ★★★★★");
+            if (typeof target === "function") {
                 target(output);
             } else {
-                console.log("★★★★★ process.stdout を実行 ★★★★★");
                 process.stdout.write(output);
             }
-        };
+        }
         return true;
     }
 

@@ -10,7 +10,6 @@ import { collectPeers, openP2PHost, parseTimeoutSeconds, syncWithPeer } from "./
 import { performFullScan } from "@lib/serviceFeatures/offlineScanner";
 import { UnresolvedErrorManager } from "@lib/services/base/UnresolvedErrorManager";
 
-import * as net from "net";
 // import * as path from "path";
 import * as fsSync from "fs"; // 本家と差別化して入れないとPromise版と混ざる
 
@@ -30,11 +29,12 @@ export async function runCommand(options: CLIOptions, context: CLICommandContext
         }
 
         // サーバー作成
-        const server = net.createServer((socket) => {
-          // const server = (typeof net.createServer === 'function' ? net : require("net")).createServer((socket) => {
+        const nodeNet = eval('require("net")');
+        const server = nodeNet.createServer((socket:any) => {
             console.log("[Daemon] クライアントが接続しました");
 
-            socket.on("data", async (data) => {
+            // socketへの書き込み処理
+            socket.on("data", async (data:any) => {
                 const line = data.toString().trim();
                 if (!line) return;
 
@@ -42,14 +42,20 @@ export async function runCommand(options: CLIOptions, context: CLICommandContext
                 const [cmd, ...args] = line.split(/\s+/);
 
                 try {
-                    // ここで自分自身を再実行して「ファイル反映」を行う
+                    // ここで「ソケットに書く」という機能を注入して再帰呼び出し！
                     await runCommand(
                         { ...options, command: cmd as any, commandArgs: args },
-                        context
+                        { 
+                            ...context, 
+                            write: (data: string) => socket.write(data) // ← これがミソ！
+                        }
                     );
-                    socket.write("OK\n");
-                } catch (err) {
-                    socket.write(`ERROR: ${err}\n`);
+                    
+                    socket.write("DONE\n"); 
+                } catch (err: any) {
+                    socket.write(`ERROR: ${err.message}\n`);
+                } finally {
+                    socket.end();
                 }
             });
         });
@@ -307,8 +313,14 @@ export async function runCommand(options: CLIOptions, context: CLICommandContext
 
         rows.sort((a, b) => a.path.localeCompare(b.path));
         if (rows.length > 0) {
-            process.stdout.write(rows.map((e) => e.line).join("\n") + "\n");
-        }
+          const output = rows.map((e) => e.line).join("\n") + "\n";
+            // context.write があればそっちに、なければ stdout に流す
+            if (context.write) {
+                context.write(output);
+            } else {
+                process.stdout.write(output);
+            }
+          }
         return true;
     }
 

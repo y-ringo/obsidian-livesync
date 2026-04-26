@@ -35,6 +35,7 @@ export interface CLICommandContext {
     vaultPath: string;
     core: LiveSyncBaseCore<ServiceContext, any>;
     settingsPath: string;
+    write?: (data: string) => void
 }
 
 export const VALID_COMMANDS = new Set([

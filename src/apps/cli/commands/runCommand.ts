@@ -39,43 +39,47 @@ export async function runCommand(options: CLIOptions, context: CLICommandContext
         const server = nodeNet.createServer((socket: any) => {
             console.log("[Daemon] クライアントが接続しました");
 
-            // socketへの書き込み処理
             socket.on("data", async (data: any) => {
                 const [cmd, ...args] = data.toString().trim().split(/\s+/);
 
-                // 終了処理
+                // 終了処理 (exit)
                 if (cmd === "exit") {
                     console.log("[Daemon] サーバーを停止します。");
-                    socket.write("DONE\n", () => {
-                        socket.end();
-                        server.close(); // 新規接続の受付を停止
-                        resolveDaemon(true); // daemonを解決
-                    });
+                    if (socket.writable) {
+                        socket.end("DONE\n", () => {
+                            server.close();
+                            resolveDaemon(true);
+                        });
+                    }
                     return;
                 }
 
                 let outputBuffer = "";
+                let statusHeader = "DONE\n"; // デフォルトは成功
 
                 try {
                     await runCommand(
                         { ...options, command: cmd as any, commandArgs: args },
                         {
                             ...context,
-                            // writeが呼ばれるたびにバッファに追記するだけにする
                             write: (msg: string) => {
                                 outputBuffer += msg;
                             },
                         }
                     );
-                    outputBuffer += "DONE\n";
                 } catch (err: any) {
-                    outputBuffer += `ERROR: ${err.message}\n`;
+                    statusHeader = "ERROR\n";
+                    outputBuffer = err.message + "\n";
                 } finally {
-                    // 最後に、貯まった全データを end() に渡して一気に送る
-                    // Node.jsの仕様上、end(data) は「全部送りきるまで切断しない」ことを保証します
-                    socket.end(outputBuffer);
+                    if (socket.writable) {
+                        socket.end(statusHeader + outputBuffer);
+                    }
+                    console.log("[Daemon] 処理完了・切断しました");
                 }
-                console.log("[Daemon] クライアントを切断しました");
+            });
+
+            socket.on("error", (err: any) => {
+                console.error("[Daemon] ソケットエラー:", err.message);
             });
         });
         // 4. ソケットの待機を開始
